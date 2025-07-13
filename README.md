@@ -78,3 +78,16 @@ dotnet ef database update
 dotnet run
 
 Open Swagger UI: https://localhost:7071/swagger
+
+
+some screenshots for API in postman
+
+<img width="1768" height="905" alt="image" src="https://github.com/user-attachments/assets/954a3f13-9c76-4e89-9ec4-5283696ebdab" />
+
+<img width="1737" height="916" alt="image" src="https://github.com/user-attachments/assets/80cc5fb9-979c-49cc-aa5e-dd574f20139f" />
+<img width="1744" height="915" alt="image" src="https://github.com/user-attachments/assets/cb5a06ef-c8cc-42b8-afdb-c76a762ad9ac" />
+<img width="1733" height="906" alt="image" src="https://github.com/user-attachments/assets/ad3eccde-1625-45a8-a88c-ec195c438303" />
+
+
+
+
