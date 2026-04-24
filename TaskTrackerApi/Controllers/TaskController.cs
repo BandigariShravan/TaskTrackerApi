@@ -1,10 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using TaskTrackerApi.Data;
 using TaskTrackerApi.DTOs;
-using TaskTrackerApi.Models;
+using TaskTrackerApi.Services;
 
 namespace TaskTrackerApi.Controllers
 {
@@ -13,78 +11,48 @@ namespace TaskTrackerApi.Controllers
     [Route("api/[controller]")]
     public class TaskController : ControllerBase
     {
+        private readonly ITaskService _taskService;
 
-        private readonly AppDbContext _context;
-
-        public TaskController(AppDbContext context)
+        public TaskController(ITaskService taskService)
         {
-            _context = context;
+            _taskService = taskService;
         }
 
-        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
-        public async Task<ActionResult<List<CreateTaskItemResponse>>> GetAll()
+        public async Task<ActionResult<IEnumerable<TaskItemDto>>> GetAll([FromQuery] TaskQueryParams query)
         {
-            var userId = GetUserId();
-            var tasks = await _context.Tasks.Include(a => a.User).Where(t => t.UserId == userId).ToListAsync();
-            var responseList = new List<CreateTaskItemResponse>();
-            foreach (var task in tasks)
-            {
-                var response = new CreateTaskItemResponse
-                {
-                    Id=task.Id,
-                    Title=task.Title,
-                    Description=task.Description,
-                    IsCompleted=task.IsCompleted,
-                    UserId=task.UserId,
-                    UserName=task.User.Username
-                };
-                responseList.Add(response);
-            }
-            return Ok(responseList);
+            var tasks = await _taskService.GetAllAsync(GetUserId(), query);
+            return Ok(tasks);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<TaskItemDto>> GetById([FromRoute] int id)
+        {
+            var task = await _taskService.GetByIdAsync(id, GetUserId());
+            return task == null ? NotFound() : Ok(task);
         }
 
         [HttpPost]
-        public async Task<ActionResult> Create([FromBody] CreateTaskItemRequest dto)
+        public async Task<ActionResult<TaskItemDto>> Create([FromBody] CreateTaskItemRequest dto)
         {
-            var userId = GetUserId();
-            var task = new TaskItem
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                IsCompleted = dto.IsCompleted,
-                UserId = userId
-            };
-
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
-            return Ok(task);
+            var task = await _taskService.CreateAsync(dto, GetUserId());
+            return CreatedAtAction(nameof(GetById), new { id = task.Id }, task);
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> Update([FromRoute] int id, [FromBody] UpdateTaskItemRequest updated)
+        public async Task<ActionResult<TaskItemDto>> Update([FromRoute] int id, [FromBody] UpdateTaskItemRequest dto)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null || task.UserId != GetUserId()) return NotFound();
-
-            task.Title = updated.Title;
-            task.Description = updated.Description;
-            task.IsCompleted = updated.IsCompleted;
-            await _context.SaveChangesAsync();
-            return Ok(task);
+            var task = await _taskService.UpdateAsync(id, dto, GetUserId());
+            return task == null ? NotFound() : Ok(task);
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete([FromRoute] int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null || task.UserId != GetUserId()) return NotFound();
-
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            var deleted = await _taskService.DeleteAsync(id, GetUserId());
+            return deleted ? NoContent() : NotFound();
         }
     }
-
 }

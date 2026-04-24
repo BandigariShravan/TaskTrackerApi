@@ -1,9 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TaskTrackerApi.Data;
 using TaskTrackerApi.DTOs;
-using TaskTrackerApi.Models;
 using TaskTrackerApi.Services;
 
 namespace TaskTrackerApi.Controllers
@@ -12,45 +8,27 @@ namespace TaskTrackerApi.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly AuthService _authService;
+        private readonly IAuthService _authService;
 
-        public AuthController(AppDbContext context, AuthService authService)
+        public AuthController(IAuthService authService)
         {
-            _context = context;
             _authService = authService;
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
-                return BadRequest("Username already exists.");
-
-            _authService.CreatePasswordHash(dto.Password, out byte[] hash, out byte[] salt);
-
-            var user = new User
-            {
-                Username = dto.Username,
-                PasswordHash = hash,
-                PasswordSalt = salt
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return Ok("Registered successfully!");
+            var (success, message) = await _authService.RegisterAsync(dto);
+            return success ? Ok(new { message }) : BadRequest(new { message });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.Username == dto.Username);
-            if (user == null || !_authService.VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt))
-                return Unauthorized("Invalid credentials.");
-
-            var token = _authService.CreateToken(user);
-            return Ok(new { token });
+            var token = await _authService.LoginAsync(dto);
+            return token != null
+                ? Ok(new { token })
+                : Unauthorized(new { message = "Invalid credentials." });
         }
     }
 }
